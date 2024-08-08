@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const app = express();
 
+//connect db
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true }); 
 
 // Basic Configuration
@@ -20,43 +21,26 @@ app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-let urlSchema = new mongoose.Schema({
+// schema for url
+const urlSchema = new mongoose.Schema({
   original_url: {
     type: String,
     required: true
   },
-  short_url: String
+  short_url: { 
+    type: Number,
+    required: true,
+    unique: true,
+    index: true
+  }
 });
 
-let urlEntry = new mongoose.model('urlEntry', urlSchema)
+// create model
+const urlEntry = mongoose.model('urlEntry', urlSchema);
 
-//Test Entry
-// const createAndSaveEntry = (done) => {
-//   let newURL = new urlEntry({short_url: "test1"})
-
-//   newURL.save(function(err, data){
-//     if (err) return done(err)
-//     done(null, data);
-//   })
-// }
-
-
-// Your first API endpoint
-app.get('/api/hello', function(req, res) {
-  res.json({ greeting: 'hello API' });
-});
-
-app.post('/api/shorturl', function(req, res) {
-  res.json({original_url: req.body.url})
-})
 
 /**
- * create database
- *  
- * create schema
- * create model for adding
- * 
- * POST submitted URL
+ * * POST submitted URL
  *  if url exists in db:
  *    res corresponding shorturl
  *  else:
@@ -65,8 +49,21 @@ app.post('/api/shorturl', function(req, res) {
  *        generate shorturl (logic?)
  *          add entry to database
  *            res.json({original_url: , short_url: )
- * 
- * GET api/shorturl/:url
+ */
+app.post('/api/shorturl', function(req, res) {
+  const original_url = req.body.url;
+
+  const last_url = urlEntry.findOne().sort({short_url: -1})
+  const short_url = last_url ? last_url.short_url + 1 : 1;
+
+  const new_url = new urlEntry({original_url, short_url});
+  new_url.save();
+
+  res.json({original_url, last_url});
+})
+
+/**
+ * * GET api/shorturl/:url
  *  find url in database
  *    if found:
  *      const urlToVisit = found.original_url
@@ -74,6 +71,10 @@ app.post('/api/shorturl', function(req, res) {
  *    else:
  *      Not Found
  */
+app.get('/api/shorturl/:url', function(req, res) {
+  res.json({ greeting: 'hello' });
+});
+
 
 
 app.listen(port, function() {
