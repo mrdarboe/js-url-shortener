@@ -6,7 +6,7 @@ const bodyParser = require('body-parser');
 const app = express();
 
 //connect db
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true }); 
+mongoose.connect(process.env.MONGO_URI); 
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -31,7 +31,6 @@ const urlSchema = new mongoose.Schema({
     type: Number,
     required: true,
     unique: true,
-    index: true
   }
 });
 
@@ -50,16 +49,16 @@ const urlEntry = mongoose.model('urlEntry', urlSchema);
  *          add entry to database
  *            res.json({original_url: , short_url: )
  */
-app.post('/api/shorturl', function(req, res) {
+app.post('/api/shorturl', async function(req, res) {
   const original_url = req.body.url;
 
-  const last_url = urlEntry.findOne().sort({short_url: -1})
+  const last_url = await urlEntry.findOne().sort({short_url: -1});
   const short_url = last_url ? last_url.short_url + 1 : 1;
-
+  
   const new_url = new urlEntry({original_url, short_url});
   new_url.save();
 
-  res.json({original_url, last_url});
+  res.json({original_url, short_url});
 })
 
 /**
