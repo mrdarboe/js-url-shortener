@@ -43,22 +43,27 @@ const urlEntry = mongoose.model('urlEntry', urlSchema);
  *  if url exists in db:
  *    res corresponding shorturl
  *  else:
- *    verify url dns.lookup
+ *    verify url dns.lookup**
  *      if pass
- *        generate shorturl (logic?)
+ *        generate shorturl (logic?)**
  *          add entry to database
  *            res.json({original_url: , short_url: )
  */
 app.post('/api/shorturl', async function(req, res) {
   const original_url = req.body.url;
-
-  const last_url = await urlEntry.findOne().sort({short_url: -1});
-  const short_url = last_url ? last_url.short_url + 1 : 1;
+  const urlRepeat = await urlEntry.findOne({original_url: req.body.url});
+  if (urlRepeat){
+    res.json({original_url: urlRepeat.original_url, short_url: urlRepeat.short_url});
+  } else {
+    const last_url = await urlEntry.findOne().sort({short_url: -1});
+    const short_url = last_url ? last_url.short_url + 1 : 1;
+    
+    const new_url = new urlEntry({original_url, short_url});
+    new_url.save();
   
-  const new_url = new urlEntry({original_url, short_url});
-  new_url.save();
-
-  res.json({original_url, short_url});
+    res.json({original_url, short_url});
+  }
+  
 })
 
 /**
@@ -70,8 +75,12 @@ app.post('/api/shorturl', async function(req, res) {
  *    else:
  *      Not Found
  */
-app.get('/api/shorturl/:url', function(req, res) {
-  res.json({ greeting: 'hello' });
+app.get('/api/shorturl/:short_url', async function(req, res) {
+  const urlFound = await urlEntry.findOne({short_url: req.params.short_url});
+  if (urlFound){
+    res.redirect(urlFound.original_url);
+  }
+  res.json({ error: 'No short URL found for the given input' });
 });
 
 
