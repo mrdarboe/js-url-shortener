@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { URL } = require('url');
+const dns = require('dns').promises;
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -51,18 +53,25 @@ const urlEntry = mongoose.model('urlEntry', urlSchema);
  */
 app.post('/api/shorturl', async function(req, res) {
   const original_url = req.body.url;
-  const urlRepeat = await urlEntry.findOne({original_url: req.body.url});
-  if (urlRepeat){
-    res.json({original_url: urlRepeat.original_url, short_url: urlRepeat.short_url});
-  } else {
-    const last_url = await urlEntry.findOne().sort({short_url: -1});
-    const short_url = last_url ? last_url.short_url + 1 : 1;
+   try {
+    await dns.lookup(original_url);
+
+    const urlRepeat = await urlEntry.findOne({original_url: req.body.url});
+    if (urlRepeat){
+      return res.json({original_url: urlRepeat.original_url, short_url: urlRepeat.short_url});
+    } else {
+      const last_url = await urlEntry.findOne().sort({short_url: -1});
+      const short_url = last_url ? last_url.short_url + 1 : 1;
+      
+      const new_url = new urlEntry({original_url, short_url});
+      new_url.save();
     
-    const new_url = new urlEntry({original_url, short_url});
-    new_url.save();
-  
-    res.json({original_url, short_url});
-  }
+      return res.json({original_url, short_url});
+    }
+   }
+   catch (err) {
+    return res.send({ "error": "invalid url" });
+   }
   
 })
 
@@ -79,8 +88,9 @@ app.get('/api/shorturl/:short_url', async function(req, res) {
   const urlFound = await urlEntry.findOne({short_url: req.params.short_url});
   if (urlFound){
     res.redirect(urlFound.original_url);
+  } else {
+    res.json({ error: 'No short URL found for the given input' });
   }
-  res.json({ error: 'No short URL found for the given input' });
 });
 
 
