@@ -53,8 +53,17 @@ const urlEntry = mongoose.model('urlEntry', urlSchema);
  */
 app.post('/api/shorturl', async function(req, res) {
   const original_url = req.body.url;
-   try {
-    await dns.lookup(original_url);
+
+  let hostname; 
+  try{
+    const parsedUrl = new URL(original_url);
+    hostname = parsedUrl.hostname;
+  } catch {
+    return res.send({ "error": "invalid url" });
+  }
+
+  try {
+    await dns.lookup(hostname);
 
     const urlRepeat = await urlEntry.findOne({original_url: req.body.url});
     if (urlRepeat){
@@ -64,7 +73,7 @@ app.post('/api/shorturl', async function(req, res) {
       const short_url = last_url ? last_url.short_url + 1 : 1;
       
       const new_url = new urlEntry({original_url, short_url});
-      new_url.save();
+      await new_url.save();
     
       return res.json({original_url, short_url});
     }
@@ -86,11 +95,14 @@ app.post('/api/shorturl', async function(req, res) {
  */
 app.get('/api/shorturl/:short_url', async function(req, res) {
   const urlFound = await urlEntry.findOne({short_url: req.params.short_url});
-  if (urlFound){
-    res.redirect(urlFound.original_url);
-  } else {
-    res.json({ error: 'No short URL found for the given input' });
+  try {
+    if (urlFound){
+      return res.redirect(urlFound.original_url);
+    }
+  } catch {
+      return res.json({ error: 'No short URL found for the given input' });
   }
+   
 });
 
 
